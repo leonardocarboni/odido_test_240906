@@ -1,6 +1,9 @@
 name: Deliver Model Artifacts
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: "0 8 * * 2"
 
@@ -64,15 +67,4 @@ jobs:
           name: model-predictions
           path: ./output.csv
 
-      - name: Send email to stakeholder
-        if: success()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.odido.com
-          server_port: 587
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "Tuesday's model predictions"
-          body: "The ML model deployment was completed successfully. The probability product02 will be purchased is ${{ env.result }}."
-          to: stakeholder@odido.com
-          from: ml-model@odido.com
+
