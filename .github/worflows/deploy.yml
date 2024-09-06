@@ -1,0 +1,78 @@
+name: Deliver Model Artifacts
+
+on:
+  schedule:
+    - cron: "0 8 * * 2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # checkout
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # setup
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.7.9"
+
+      # dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # linting
+      - name: Run linting
+        run: |
+          pip install flake8
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Download new data
+        run: |
+          curl -o telecom_test.csv ${{ secrets.NEW_DATA_URL }}
+
+      # train model
+      - name: Train model
+        run: python model.py
+
+      # run model
+      - name: Run model
+        run: python run.py
+
+      - name: Send email to stakeholder
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.odido.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Problem with ML model deployment"
+          body: "There has been a problem with the ML model deployment on $(date +'%Y-%m-%d'). Please check the logs."
+          to: manager@odido.com
+          from: ml-model@odido.com
+
+      # save predictions
+      - name: Save predictions as artifact
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: model-predictions
+          path: ./output.csv
+
+      - name: Send email to stakeholder
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.odido.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Tuesday's model predictions"
+          body: "The ML model deployment was completed successfully. The probability product02 will be purchased is ${{ env.result }}."
+          to: stakeholder@odido.com
+          from: ml-model@odido.com
